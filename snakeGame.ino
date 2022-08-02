@@ -11,7 +11,7 @@ static const short buttonRightPin = 9;
 
 const short intensity = 3;
 
-const short messageSpeed = 5;
+const short messageSpeed = 7;
 
 LedControl matrix(DIN,CLK, CS, 1);
 
@@ -23,6 +23,7 @@ struct COORD {
     X = Xin;
     Y = Yin;
   }
+  COORD(){};
 };
 
 
@@ -40,6 +41,7 @@ public:
   }
 };
 
+COORD storageArray[64];
 
 class Snake {
   private:
@@ -48,6 +50,20 @@ class Snake {
     char direction;
     Vector<COORD> body;
   public:
+    char getDirection(){
+      return direction;
+    }
+    bool bodyCollision(){
+      for(int i =0; i < body.size() - 1; i++){
+        if(pos.X == body[i].X && pos.Y == body[i].Y){
+          return true;
+        }
+      }
+      return false;
+    }
+    int getBodySize(){
+      return body.size();
+    }
     Vector<COORD> getSnakeBody() {
       return body;
     }
@@ -94,6 +110,7 @@ class Snake {
       direction = d;
     }
     Snake(): pos(0,0),direction('N'),len(1) {
+        body.setStorage(storageArray);
         body.push_back(pos);
     };
     bool eatenFood(COORD foodPos) {
@@ -163,27 +180,30 @@ void loop() {
   upPress = digitalRead(buttonUpPin);
   leftPress = digitalRead(buttonLeftPin);
   rightPress = digitalRead(buttonRightPin);
-  Serial.print("Left");
-  Serial.println(leftPress);
-  Serial.print("rightPress");
-  Serial.println(rightPress);
-  Serial.print("upPress");
-  Serial.println(upPress);
-  Serial.print("downPress");
-  Serial.println(downPress);
   if(downPress){
-    snake.setDirection('D');
+    if(snake.getDirection() != 'U')
+      snake.setDirection('D');
   }
   else if(upPress){
-     snake.setDirection('U');
+    if(snake.getDirection() != 'D')
+      snake.setDirection('U');
   }
   else if(leftPress){
-     snake.setDirection('L');
+    if(snake.getDirection() != 'R')
+      snake.setDirection('L');
   }
   else if(rightPress){
-     snake.setDirection('R');
+    if(snake.getDirection() != 'L')
+      snake.setDirection('R');
   }
   snake.moveSnake();
+  if(snake.bodyCollision()){
+    Serial.print("Collision\n");
+    delay(1000);
+    snake = Snake();
+    showGameOverMessage();
+    
+  }
   if(snake.eatenFood(food.getFoodPos())){
     food.genFood();
     snake.grow();
@@ -240,4 +260,22 @@ void showSnakeMessage() {
     }
   }();
   matrix.clearDisplay(0);
+}
+
+// scrolls the 'game over' message around the matrix
+void showGameOverMessage() {
+  [&] {
+    for (int d = 0; d < sizeof(gameOverMessage[0]) - 7; d++) {
+      for (int col = 0; col < 8; col++) {
+        delay(messageSpeed);
+        for (int row = 0; row < 8; row++) {
+          // this reads the byte from the PROGMEM and displays it on the screen
+          matrix.setLed(0, row, col, pgm_read_byte(&(gameOverMessage[row][col + d])));
+        }
+      }
+    }
+  }();
+
+  matrix.clearDisplay(0);
+
 }
