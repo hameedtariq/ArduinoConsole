@@ -1,18 +1,23 @@
 #include "LedControl.h"
+#include <LiquidCrystal_I2C.h>
 #include <Vector.h>
 
 static const short CLK = 4;   // clock for LED matrix
 static const short CS  = 2;  // chip-select for LED matrix
 static const short DIN = 3;
-static const short buttonDownPin = 7;
+static const short buttonDownPin = 10;
 static const short buttonUpPin = 12;
 static const short buttonLeftPin = 8;
 static const short buttonRightPin = 9;
+static const short BUZZER = 6;
+
+static int initialLength = 3;
 
 const short intensity = 3;
 
 const short messageSpeed = 7;
 
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 LedControl matrix(DIN,CLK, CS, 1);
 
 struct COORD {
@@ -50,6 +55,9 @@ class Snake {
     char direction;
     Vector<COORD> body;
   public:
+    int getLength() {
+      return len;
+    }
     char getDirection(){
       return direction;
     }
@@ -109,9 +117,12 @@ class Snake {
     void setDirection(char d){
       direction = d;
     }
-    Snake(): pos(0,0),direction('N'),len(1) {
+    Snake(): pos(3,3),direction('R'),len(initialLength) {
         body.setStorage(storageArray);
         body.push_back(pos);
+        for(int i =0; i < initialLength - 1; i++){
+          moveSnake();
+        }
     };
     bool eatenFood(COORD foodPos) {
       if(pos.X == foodPos.X && pos.Y == foodPos.Y){
@@ -136,11 +147,30 @@ void setup() {
   pinMode(buttonUpPin, INPUT_PULLUP);
   pinMode(buttonRightPin, INPUT_PULLUP);
   pinMode(buttonLeftPin, INPUT_PULLUP);
+  pinMode(BUZZER, OUTPUT);
   matrix.shutdown(0, false);
   matrix.setIntensity(0, intensity);
   matrix.clearDisplay(0);
   randomSeed(analogRead(1));
+  
+  lcd.begin();
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Snake Game");
+  lcd.setCursor(0,1);
+  lcd.print("Reborn");
+
+
+  
   showSnakeMessage();
+
+  // LCD 
+  lcd.begin();
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0,0);
+  
 }
 
 void renderBoard() {
@@ -176,10 +206,25 @@ int downPress = 0,upPress = 0,leftPress = 0,rightPress = 0;
 
 void loop() {
   // put your main code here, to run repeatedly:
+  lcd.setCursor(0,0);
+  lcd.print("Score: ");
+  lcd.print(snake.getLength() - initialLength);
   downPress = digitalRead(buttonDownPin);
   upPress = digitalRead(buttonUpPin);
   leftPress = digitalRead(buttonLeftPin);
   rightPress = digitalRead(buttonRightPin);
+  Serial.print("LEFT: ");
+  Serial.println(leftPress);
+  Serial.print("\n");
+  Serial.print("RIGHT: ");
+  Serial.println(rightPress);
+  Serial.print("\n");
+  Serial.print("UP: ");
+  Serial.println(upPress);
+  Serial.print("\n");
+  Serial.print("DOWN: ");
+  Serial.println(downPress);
+  Serial.print("\n");
   if(downPress){
     if(snake.getDirection() != 'U')
       snake.setDirection('D');
@@ -199,7 +244,9 @@ void loop() {
   snake.moveSnake();
   if(snake.bodyCollision()){
     Serial.print("Collision\n");
+    tone(BUZZER, 5000);
     delay(1000);
+    noTone(BUZZER);
     snake = Snake();
     showGameOverMessage();
     
@@ -207,6 +254,9 @@ void loop() {
   if(snake.eatenFood(food.getFoodPos())){
     food.genFood();
     snake.grow();
+    tone(BUZZER, 20);
+    delay(100);
+    noTone(BUZZER);
   }
   renderBoard();
   
